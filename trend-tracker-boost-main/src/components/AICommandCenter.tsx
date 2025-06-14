@@ -3,10 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Bot, Send, TrendingUp, Users, DollarSign, X } from 'lucide-react';
+import { Bot, Send, TrendingUp, X } from 'lucide-react';
 import { useGamification } from '@/contexts/GamificationContext';
-
-
 
 interface AIResponse {
   id: string;
@@ -17,6 +15,7 @@ interface AIResponse {
     category: string;
     summary: string;
     trend: 'up' | 'down' | 'stable';
+    url?: string;
   }>;
 }
 
@@ -27,96 +26,84 @@ export const AICommandCenter: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { incrementActionsPerformed } = useGamification();
 
-  const mockResponses: Record<string, AIResponse> = {
-    'healthtech': {
-      id: '1',
-      query: 'Trending in healthtech EU?',
-      response: 'European healthtech is experiencing significant growth in AI diagnostics and telemedicine platforms. Key trends include regulatory compliance solutions and cross-border patient data sharing.',
-      insights: [
-        {
-          title: 'Doctolib raises €500M Series F',
-          category: 'Funding',
-          summary: 'French telemedicine giant expands across Europe',
-          trend: 'up'
+  const handleQuery = async () => {
+    if (!query.trim()) return;
+
+    setIsLoading(true);
+    incrementActionsPerformed();
+
+    try {
+      const GROQ_API_KEY = `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`;
+      const GROQ_MODEL = "llama3-70b-8192";
+
+      const systemPrompt = `
+You are a startup market intelligence assistant. Given a query like "Trending in HealthTech EU?" or "Freemium launches this quarter", respond with:
+
+- A brief summary insight paragraph.
+- A list of 2-3 news-style insights with:
+  - title
+  - category (like Funding, Product, Regulation, etc.)
+  - short summary
+  - trend ("up", "down", or "stable")
+  - optional url (if applicable)
+
+Respond in JSON format with ONLY these keys:
+{
+  "response": "Short paragraph",
+  "insights": [
+    {
+      "title": "...",
+      "category": "...",
+      "summary": "...",
+      "trend": "up",
+      "url": "https://..."
+    }
+  ]
+}`;
+
+      const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${GROQ_API_KEY}`,
+          "Content-Type": "application/json"
         },
-        {
-          title: 'GDPR compliance tools surge 40%',
-          category: 'Regulation',
-          summary: 'Healthcare startups prioritize data protection',
-          trend: 'up'
-        }
-      ]
-    },
-    'freemium': {
-      id: '2',
-      query: 'Freemium launches this quarter?',
-      response: 'Q4 has seen 47 freemium model launches, with productivity tools and developer platforms leading. Conversion rates average 3.2% for B2B SaaS.',
-      insights: [
-        {
-          title: 'Notion-style tools trending',
-          category: 'Product',
-          summary: 'All-in-one workspace platforms gaining traction',
-          trend: 'up'
-        },
-        {
-          title: 'API-first companies grow 25%',
-          category: 'Developer Tools',
-          summary: 'Developer-focused freemium models showing strong adoption',
-          trend: 'up'
-        }
-      ]
+        body: JSON.stringify(
+          {
+          model: GROQ_MODEL,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: query }
+          ],
+          temperature: 0.7
+        })
+      });
+
+      const result = await groqResponse.json();
+      const content = result.choices?.[0]?.message?.content || "{}";
+      const parsed = JSON.parse(content);
+
+      const aiResponse: AIResponse = {
+        id: Date.now().toString(),
+        query,
+        response: parsed.response || `Here's what’s trending for "${query}":`,
+        insights: parsed.insights || []
+      };
+
+      setResponses(prev => [aiResponse, ...prev]);
+    } catch (error) {
+      console.error("Groq API error:", error);
+      setResponses(prev => [{
+        id: Date.now().toString(),
+        query,
+        response: `Unable to fetch insights for "${query}". Please try again later.`,
+        insights: []
+      }, ...prev]);
+    } finally {
+      setQuery('');
+      setIsLoading(false);
     }
   };
 
-  const handleQuery = async () => {
-  if (!query.trim()) return;
-
-  setIsLoading(true);
-  incrementActionsPerformed();
-
-  try {
-   const apiKey ='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';
-
-if (!apiKey) {
-  console.error("❌ GNews API key is missing!");
-  return;
-}
-const url = `https://gnews.io/api/v4/search?q=${encodeURIComponent(query)}&token=${apiKey}&lang=en&max=3`;
-
-const res = await fetch(url);
-const data = await res.json();
-
-
-    const insights = (data.articles || []).map((article: any) => ({
-      title: article.title,
-      category: 'Market Intelligence', // Or derive based on title
-      summary: article.description || 'No summary available.',
-      trend: 'up' as const
-    }));
-
-    const aiResponse: AIResponse = {
-      id: Date.now().toString(),
-      query,
-      response: `Here's what’s trending for "${query}":`,
-      insights
-    };
-
-    setResponses(prev => [aiResponse, ...prev]);
-  } catch (error) {
-    console.error(error);
-    setResponses(prev => [{
-      id: Date.now().toString(),
-      query,
-      response: `Unable to fetch insights for "${query}". Please try again later.`,
-      insights: []
-    }, ...prev]);
-  } finally {
-    setQuery('');
-    setIsLoading(false);
-  }
-};
-
-    
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -158,7 +145,6 @@ const data = await res.json();
         </CardHeader>
 
         <CardContent className="flex-1 flex flex-col p-4 max-h-96 overflow-hidden">
-          {/* Chat History */}
           <div className="flex-1 overflow-y-auto space-y-4 mb-4">
             {responses.length === 0 && (
               <div className="text-center text-slate-500 py-8">
@@ -170,21 +156,30 @@ const data = await res.json();
                 </div>
               </div>
             )}
-            
+
             {responses.map((response) => (
               <div key={response.id} className="space-y-3">
                 <div className="bg-slate-100 rounded-lg p-3">
                   <p className="text-sm font-medium text-slate-700">{response.query}</p>
                 </div>
-                
                 <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-3 border border-indigo-100">
                   <p className="text-sm text-slate-700 mb-3">{response.response}</p>
-                  
                   <div className="space-y-2">
                     {response.insights.map((insight, idx) => (
                       <div key={idx} className="bg-white rounded p-2 border border-indigo-100">
                         <div className="flex items-start justify-between mb-1">
-                          <h4 className="text-xs font-medium text-slate-800">{insight.title}</h4>
+                          {insight.url ? (
+                            <a
+                              href={insight.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-medium text-indigo-600 hover:underline"
+                            >
+                              {insight.title}
+                            </a>
+                          ) : (
+                            <h4 className="text-xs font-medium text-slate-800">{insight.title}</h4>
+                          )}
                           <div className="flex items-center gap-1">
                             {insight.trend === 'up' && <TrendingUp className="w-3 h-3 text-green-500" />}
                             {insight.trend === 'down' && <TrendingUp className="w-3 h-3 text-red-500 transform rotate-180" />}
@@ -193,13 +188,23 @@ const data = await res.json();
                         </div>
                         <Badge variant="outline" className="text-xs mb-1">{insight.category}</Badge>
                         <p className="text-xs text-slate-600">{insight.summary}</p>
+                        {insight.url && (
+                          <a
+                            href={insight.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline mt-1 inline-block"
+                          >
+                            Read more →
+                          </a>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
             ))}
-            
+
             {isLoading && (
               <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-3 border border-indigo-100">
                 <div className="flex items-center gap-2">
@@ -212,7 +217,6 @@ const data = await res.json();
             )}
           </div>
 
-          {/* Input */}
           <div className="flex gap-2">
             <Input
               value={query}
@@ -222,7 +226,7 @@ const data = await res.json();
               className="flex-1"
               disabled={isLoading}
             />
-            <Button 
+            <Button
               onClick={handleQuery}
               disabled={!query.trim() || isLoading}
               size="icon"

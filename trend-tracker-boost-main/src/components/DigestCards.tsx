@@ -26,6 +26,7 @@ interface Insight {
   xpReward: number;
   url: string;
   relevantToGoals: FounderGoal[];
+  
 }
 
 interface DigestCardsProps {
