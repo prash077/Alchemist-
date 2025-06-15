@@ -1,25 +1,43 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Trophy, Flame, Target, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 
 export const GameStats = () => {
-  const stats = {
-    streak: 7,
-    xp: 1250,
-    level: 3,
-    insightsRead: 42,
+  const [stats, setStats] = useState({
+    streak: 0,
+    xp: 0,
+    level: 1,
+    insightsRead: 0,
     weeklyGoal: 5,
-    weeklyProgress: 3
-  };
+    weeklyProgress: 0,
+  });
+
+  useEffect(() => {
+    // 1. Trigger streak update
+    fetch('http://localhost:5173/api/stats/activity', {
+      method: 'POST'
+    })
+      .then(res => res.json())
+      .then(data => {
+        console.log('Streak response:', data);
+      })
+      .catch(err => console.error('Error updating streak:', err));
+  
+    // 2. Fetch full game stats
+    fetch('http://localhost:5173/api/stats')
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(err => console.error('Error fetching game stats:', err));
+  }, []);
+  
 
   const badges = [
-    { name: 'Trend Tracker', icon: Target, earned: true },
-    { name: 'Weekly Warrior', icon: Flame, earned: true },
-    { name: 'Insight Master', icon: Star, earned: false },
-    { name: 'Competition Spy', icon: Trophy, earned: false }
+    { name: 'Trend Tracker', icon: Target, earned: stats.insightsRead >= 10 },
+    { name: 'Weekly Warrior', icon: Flame, earned: stats.weeklyProgress >= stats.weeklyGoal },
+    { name: 'Insight Master', icon: Star, earned: stats.insightsRead >= 50 },
+    { name: 'Competition Spy', icon: Trophy, earned: stats.level >= 5 }
   ];
 
   return (

@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter, BookOpen, Calendar, Tag } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,32 +9,40 @@ export const InsightLibrary = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
 
-  const savedInsights = [
-    {
-      id: 1,
-      title: 'The Rise of No-Code Platforms in Enterprise',
-      category: 'Technology',
-      date: '2024-01-10',
-      tags: ['no-code', 'enterprise', 'productivity'],
-      summary: 'How businesses are leveraging no-code solutions to accelerate development...'
-    },
-    {
-      id: 2,
-      title: 'Supply Chain Resilience Strategies',
-      category: 'Operations',
-      date: '2024-01-09',
-      tags: ['supply-chain', 'risk-management', 'logistics'],
-      summary: 'Key strategies companies are using to build more resilient supply chains...'
-    },
-    {
-      id: 3,
-      title: 'Customer Acquisition Cost Optimization',
-      category: 'Marketing',
-      date: '2024-01-08',
-      tags: ['marketing', 'CAC', 'optimization'],
-      summary: 'Data-driven approaches to reducing customer acquisition costs...'
+  const [savedInsights, setSavedInsights] = useState([]);
+
+  useEffect(() => {
+  const fetchInsights = async () => {
+    try {
+      const res = await fetch('http://localhost:5173/api/insights');
+      if (!res.ok) throw new Error('Failed to fetch insights');
+      const data = await res.json();
+      setSavedInsights(data);
+    } catch (err) {
+      console.error('Error fetching insights:', err);
     }
-  ];
+  };
+
+  fetchInsights();
+}, []);
+
+const handleDelete = async (id: string) => {
+  try {
+    const res = await fetch(`http://localhost:5173/api/insights/${id}`, {
+      method: 'DELETE',
+    });
+
+    if (!res.ok) {
+      throw new Error('Failed to delete insight');
+    }
+
+    // Remove deleted insight from UI
+    setSavedInsights(prev => prev.filter(insight => insight._id !== id));
+  } catch (err) {
+    console.error(err);
+  }
+};
+
 
   const filters = ['all', 'Technology', 'Operations', 'Marketing', 'Finance'];
 
@@ -124,9 +131,15 @@ export const InsightLibrary = () => {
                   ))}
                 </div>
                 
-                <Button variant="ghost" size="sm">
-                  Read Again
-                </Button>
+                <Button
+  variant="destructive"
+  size="sm"
+  onClick={() => handleDelete(insight._id)}
+>
+  Delete
+</Button>
+
+
               </div>
             </CardContent>
           </Card>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { WatchlistItem, WatchlistItemType } from './WatchlistItem';
 import { AddToWatchlistModal } from './AddToWatchlistModal';
 import { useGamification } from '@/contexts/GamificationContext';
 import { useFounderPersona } from '@/components/FounderPersona';
+import { CompanyPerformanceGraph } from '@/components/CompanyPerformanceGraph';
 
 const mockWatchlistItems: WatchlistItemType[] = [
   {
@@ -59,9 +59,11 @@ const mockWatchlistItems: WatchlistItemType[] = [
 
 export const WatchlistPanel: React.FC = () => {
   const [watchlistItems, setWatchlistItems] = useState<WatchlistItemType[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedItem, setSelectedItem] = useState<WatchlistItemType | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'company' | 'competitor' | 'trend'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+
   const { incrementItemsTracked } = useGamification();
   const { goals } = useFounderPersona();
 
@@ -70,9 +72,8 @@ export const WatchlistPanel: React.FC = () => {
     if (saved) {
       setWatchlistItems(JSON.parse(saved));
     } else {
-      // Initialize with mock data and personalized suggestions
-      const personalizedItems = mockWatchlistItems.filter(item => 
-        goals.some(goal => 
+      const personalizedItems = mockWatchlistItems.filter(item =>
+        goals.some(goal =>
           (goal === 'GTM' && item.category === 'Fintech') ||
           (goal === 'Scaling' && item.type === 'company') ||
           (goal === 'Fundraising' && item.type === 'competitor')
@@ -88,7 +89,7 @@ export const WatchlistPanel: React.FC = () => {
 
   const filteredItems = watchlistItems.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.description.toLowerCase().includes(searchTerm.toLowerCase());
+                          item.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterType === 'all' || item.type === filterType;
     return matchesSearch && matchesFilter;
   });
@@ -108,8 +109,7 @@ export const WatchlistPanel: React.FC = () => {
   };
 
   const handleViewDetails = (item: WatchlistItemType) => {
-    console.log('Viewing details for:', item);
-    // This could open a detailed modal or navigate to a details page
+    setSelectedItem(item);
   };
 
   const getTotalAlerts = () => {
@@ -139,9 +139,8 @@ export const WatchlistPanel: React.FC = () => {
             </Button>
           </div>
         </CardHeader>
-        
+
         <CardContent className="space-y-4">
-          {/* Search and Filter */}
           <div className="flex gap-3">
             <div className="relative flex-1">
               <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
@@ -152,7 +151,7 @@ export const WatchlistPanel: React.FC = () => {
                 className="pl-10"
               />
             </div>
-            
+
             <div className="flex gap-2">
               {(['all', 'company', 'competitor', 'trend'] as const).map(type => (
                 <Button
@@ -168,7 +167,6 @@ export const WatchlistPanel: React.FC = () => {
             </div>
           </div>
 
-          {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-blue-600">{watchlistItems.length}</div>
@@ -188,7 +186,6 @@ export const WatchlistPanel: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Watchlist Items */}
       <div className="space-y-4">
         {filteredItems.length === 0 ? (
           <Card className="bg-white/70 backdrop-blur-sm border border-white/20 shadow-lg">
@@ -196,7 +193,7 @@ export const WatchlistPanel: React.FC = () => {
               <TrendingUp className="w-12 h-12 mx-auto mb-4 text-slate-300" />
               <h3 className="text-lg font-medium text-slate-600 mb-2">No items found</h3>
               <p className="text-slate-500 mb-4">
-                {searchTerm || filterType !== 'all' 
+                {searchTerm || filterType !== 'all'
                   ? 'Try adjusting your search or filters'
                   : 'Start tracking companies, competitors, and trends'}
               </p>
@@ -229,6 +226,10 @@ export const WatchlistPanel: React.FC = () => {
         onClose={() => setShowAddModal(false)}
         onAdd={handleAddItem}
       />
+
+      {selectedItem && (
+        <CompanyPerformanceGraph companyName={selectedItem.name} />
+      )}
     </div>
   );
 };
